@@ -1,0 +1,8 @@
+{
+  "name": "kond",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "apps/web"
+  ]
+}
