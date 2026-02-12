@@ -12,6 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Package } from '../../lib/types';
+import { router } from 'expo-router';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../../lib/theme';
 
 type ScanStep = 'scanning' | 'confirming';
@@ -112,7 +113,14 @@ export default function ScanScreen() {
             Alert.alert(
                 '✅ Entrega Confirmada!',
                 `${selectedIds.size} encomenda(s) entregue(s).`,
-                [{ text: 'OK', onPress: resetScan }]
+                [{
+                    text: 'OK', onPress: () => {
+                        resetScan();
+                        // Redirect to package list or dashboard
+                        // using replace to clear the current stack and go back to main screen
+                        router.replace('/(doorman)');
+                    }
+                }]
             );
         } catch (error: any) {
             Alert.alert('Erro', error.message || 'Falha ao confirmar entrega.');

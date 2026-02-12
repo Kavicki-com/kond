@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { LayoutDashboard, PackagePlus, Scan } from 'lucide-react-native';
+import { LayoutDashboard, PackagePlus, Scan, Settings } from 'lucide-react-native';
 import { colors, fontSize } from '../../lib/theme';
 
 export default function DoormanLayout() {
@@ -45,6 +45,14 @@ export default function DoormanLayout() {
                 options={{
                     title: 'Entregar',
                     tabBarIcon: ({ color, size }) => <Scan size={size} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="settings"
+                options={{
+                    title: 'Configurações',
+                    headerTitle: 'Configurações',
+                    tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
                 }}
             />
         </Tabs>
