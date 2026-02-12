@@ -10,77 +10,35 @@ import {
     Alert,
     ActivityIndicator,
 } from 'react-native';
-import { Link, router } from 'expo-router';
-import { Package, Ticket } from 'lucide-react-native';
+import { Link } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../../lib/theme';
 
-export default function LoginScreen() {
-    const { signIn, refreshUserData } = useAuth();
+export default function RegisterScreen() {
+    const { signUp } = useAuth();
+    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = async () => {
-        if (!email.trim() || !password.trim()) {
-            Alert.alert('Atenção', 'Preencha email e senha.');
+    const handleRegister = async () => {
+        if (!fullName.trim() || !email.trim() || !password.trim()) {
+            Alert.alert('Atenção', 'Preencha todos os campos.');
+            return;
+        }
+        if (password.length < 6) {
+            Alert.alert('Atenção', 'A senha deve ter pelo menos 6 caracteres.');
             return;
         }
 
         setLoading(true);
-        // 1. Sign in
-        const { error } = await signIn(email.trim(), password);
+        const { error } = await signUp(email.trim(), password, fullName.trim());
+        setLoading(false);
 
         if (error) {
-            setLoading(false);
-            Alert.alert('Erro ao entrar', error.message);
-            return;
-        }
-
-        try {
-            // 2. Refresh context data (async)
-            await refreshUserData();
-
-            // 3. Manually fetch role for immediate redirect (faster than waiting for context prop)
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (user) {
-                // Check if staff
-                const { data: staff } = await supabase
-                    .from('staff')
-                    .select('role')
-                    .eq('profile_id', user.id)
-                    .eq('is_active', true)
-                    .single();
-
-                if (staff) {
-                    router.replace('/(doorman)');
-                    return;
-                }
-
-                // Check if resident
-                const { data: resident } = await supabase
-                    .from('residents')
-                    .select('id')
-                    .eq('profile_id', user.id)
-                    .single();
-
-                if (resident) {
-                    router.replace('/(resident)');
-                    return;
-                }
-            }
-
-            // Fallback
-            router.replace('/(auth)/onboarding');
-
-        } catch (e) {
-            console.error('Login redirect error:', e);
-            // Default fallback
-            router.replace('/');
-        } finally {
-            setLoading(false);
+            Alert.alert('Erro ao criar conta', error.message);
+        } else {
+            Alert.alert('Conta criada!', 'Verifique seu email para confirmar o cadastro.');
         }
     };
 
@@ -90,15 +48,24 @@ export default function LoginScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <View style={styles.content}>
-                {/* Logo / Branding */}
                 <View style={styles.header}>
-                    <Package size={64} color={colors.primary} style={{ marginBottom: spacing.sm }} />
-                    <Text style={styles.title}>Kond</Text>
-                    <Text style={styles.subtitle}>Gestão de Encomendas</Text>
+                    <Text style={styles.title}>Criar Conta</Text>
+                    <Text style={styles.subtitle}>Cadastre-se para começar</Text>
                 </View>
 
-                {/* Form */}
                 <View style={styles.form}>
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.label}>Nome completo</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="João Silva"
+                            placeholderTextColor={colors.textMuted}
+                            value={fullName}
+                            onChangeText={setFullName}
+                            autoCapitalize="words"
+                        />
+                    </View>
+
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Email</Text>
                         <TextInput
@@ -117,7 +84,7 @@ export default function LoginScreen() {
                         <Text style={styles.label}>Senha</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="••••••••"
+                            placeholder="Mínimo 6 caracteres"
                             placeholderTextColor={colors.textMuted}
                             value={password}
                             onChangeText={setPassword}
@@ -127,26 +94,27 @@ export default function LoginScreen() {
 
                     <TouchableOpacity
                         style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleLogin}
+                        onPress={handleRegister}
                         disabled={loading}
                         activeOpacity={0.8}
                     >
                         {loading ? (
                             <ActivityIndicator color={colors.textPrimary} />
                         ) : (
-                            <Text style={styles.buttonText}>Entrar</Text>
+                            <Text style={styles.buttonText}>Criar Conta</Text>
                         )}
                     </TouchableOpacity>
+                </View>
 
-                    <Link href="/(auth)/onboarding" asChild>
-                        <TouchableOpacity style={styles.buttonOutline}>
-                            <Ticket size={20} color={colors.primary} style={{ marginRight: spacing.xs }} />
-                            <Text style={styles.buttonOutlineText}>Entrar com convite</Text>
+                <View style={styles.footer}>
+                    <Link href="/(auth)/login" asChild>
+                        <TouchableOpacity>
+                            <Text style={styles.footerText}>
+                                Já tem conta? <Text style={styles.footerLink}>Entrar</Text>
+                            </Text>
                         </TouchableOpacity>
                     </Link>
                 </View>
-
-                {/* Footer links removed as per request */}
             </View>
         </KeyboardAvoidingView>
     );
@@ -166,15 +134,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: spacing.xxl,
     },
-    logo: {
-        fontSize: 64,
-        marginBottom: spacing.sm,
-    },
     title: {
-        fontSize: fontSize.hero,
+        fontSize: fontSize.xxl,
         fontWeight: fontWeight.bold,
         color: colors.textPrimary,
-        letterSpacing: 1,
     },
     subtitle: {
         fontSize: fontSize.md,
@@ -219,27 +182,9 @@ const styles = StyleSheet.create({
         fontWeight: fontWeight.semibold,
         color: colors.textPrimary,
     },
-    buttonOutline: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: colors.primary,
-        borderRadius: borderRadius.md,
-        paddingVertical: spacing.md,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: spacing.xs,
-        gap: spacing.xs,
-    },
-    buttonOutlineText: {
-        fontSize: fontSize.lg,
-        fontWeight: fontWeight.semibold,
-        color: colors.primary,
-    },
     footer: {
         alignItems: 'center',
         marginTop: spacing.xl,
-        gap: spacing.md,
     },
     footerText: {
         fontSize: fontSize.sm,
@@ -248,8 +193,5 @@ const styles = StyleSheet.create({
     footerLink: {
         color: colors.primaryLight,
         fontWeight: fontWeight.semibold,
-    },
-    inviteLink: {
-        marginTop: spacing.xs,
     },
 });

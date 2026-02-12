@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const loadUserData = async (userId: string) => {
         try {
-            // Load profile
+            // Load profile (separate query to avoid RLS issues)
             const { data: profileData } = await supabase
                 .from('profiles')
                 .select('*')
@@ -75,42 +75,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (profileData) setProfile(profileData);
 
-            // Check if staff
-            const { data: staffData } = await supabase
+            // Check if staff (simple query, no joins)
+            const { data: staffRows } = await supabase
                 .from('staff')
-                .select('*, condominium:condominiums(*)')
+                .select('*')
                 .eq('profile_id', userId)
-                .eq('is_active', true)
-                .limit(1)
-                .single();
+                .eq('is_active', true);
+
+            const staffData = staffRows && staffRows.length > 0 ? staffRows[0] : null;
 
             if (staffData) {
-                setStaff(staffData);
-                setRole(staffData.role);
-                setCondominium(staffData.condominium || null);
-            } else {
-                // Check if resident
-                const { data: residentData } = await supabase
-                    .from('residents')
-                    .select(`
-            *,
-            unit:units(
-              *,
-              block:blocks(
-                *,
-                condominium:condominiums(*)
-              )
-            )
-          `)
-                    .eq('profile_id', userId)
-                    .limit(1)
+                setStaff(staffData as Staff);
+                setRole(staffData.role as UserRole);
+
+                // Load condominium separately
+                const { data: condoData } = await supabase
+                    .from('condominiums')
+                    .select('*')
+                    .eq('id', staffData.condominium_id)
                     .single();
 
+                if (condoData) setCondominium(condoData as Condominium);
+            } else {
+                // Check if resident (simple query, no joins)
+                const { data: residentRows } = await supabase
+                    .from('residents')
+                    .select('*')
+                    .eq('profile_id', userId);
+
+                const residentData = residentRows && residentRows.length > 0 ? residentRows[0] : null;
+
                 if (residentData) {
-                    setResident(residentData);
+                    setResident(residentData as Resident);
                     setRole('resident');
-                    const condo = residentData.unit?.block?.condominium || null;
-                    setCondominium(condo);
+
+                    // Load unit → block → condominium chain separately
+                    const { data: unitData } = await supabase
+                        .from('units')
+                        .select('*')
+                        .eq('id', residentData.unit_id)
+                        .single();
+
+                    if (unitData) {
+                        const { data: blockData } = await supabase
+                            .from('blocks')
+                            .select('*')
+                            .eq('id', unitData.block_id)
+                            .single();
+
+                        if (blockData) {
+                            const { data: condoData } = await supabase
+                                .from('condominiums')
+                                .select('*')
+                                .eq('id', blockData.condominium_id)
+                                .single();
+
+                            if (condoData) setCondominium(condoData as Condominium);
+                        }
+                    }
                 } else {
                     // New user with no role yet
                     setRole(null);

@@ -4,5 +4,16 @@
   "workspaces": [
     "apps/mobile",
     "apps/web"
-  ]
+  ],
+  "scripts": {
+    "mobile": "npm start --workspace=apps/mobile",
+    "mobile:android": "npm run android --workspace=apps/mobile",
+    "mobile:ios": "npm run ios --workspace=apps/mobile",
+    "web": "npm run dev --workspace=apps/web"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "~19.1.0"
+  }
 }

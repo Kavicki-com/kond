@@ -14,7 +14,7 @@ export default function Index() {
         );
     }
 
-    // Not authenticated
+    // Not authenticated — start with login
     if (!session) {
         return <Redirect href="/(auth)/login" />;
     }
