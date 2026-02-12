@@ -1,4 +1,4 @@
-import { Slot } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../contexts/AuthContext';
 
@@ -6,7 +6,19 @@ export default function RootLayout() {
     return (
         <AuthProvider>
             <StatusBar style="light" />
-            <Slot />
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(resident)" />
+                <Stack.Screen name="(doorman)" />
+                <Stack.Screen
+                    name="settings/profile"
+                    options={{
+                        presentation: 'card',
+                        headerShown: true,
+                    }}
+                />
+            </Stack>
         </AuthProvider>
     );
 }

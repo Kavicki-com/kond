@@ -18,9 +18,29 @@ import { supabase } from '../../lib/supabase';
 import { Block, Unit, CarrierSuggestion, VolumeType } from '../../lib/types';
 import {
     colors, spacing, borderRadius, fontSize, fontWeight, shadows,
-    volumeTypeIcons, volumeTypeLabels,
+    volumeTypeLabels,
 } from '../../lib/theme';
 import { sendPushNotification } from '../../lib/notifications';
+import {
+    Package,
+    Mail,
+    ShoppingBag,
+    Scroll,
+    Archive,
+    Camera,
+    Bell,
+    Check,
+} from 'lucide-react-native';
+
+const volumeIcons: Record<VolumeType, React.ReactNode> = {
+    box_s: <Package size={24} color={colors.primary} />,
+    box_m: <Package size={28} color={colors.primary} />,
+    box_l: <Package size={32} color={colors.primary} />,
+    envelope: <Mail size={24} color={colors.primary} />,
+    bag: <ShoppingBag size={24} color={colors.primary} />,
+    tube: <Scroll size={24} color={colors.primary} />,
+    other: <Archive size={24} color={colors.primary} />,
+};
 
 export default function RegisterPackageScreen() {
     const { condominium, user } = useAuth();
@@ -176,8 +196,22 @@ export default function RegisterPackageScreen() {
                 console.error('Error fetching residents:', resError);
             } else if (residents && residents.length > 0) {
                 console.log(`Found ${residents.length} residents linked to unit.`);
-                // We rely on Supabase Realtime in the Resident App to trigger the notification
-                // This avoids "Project ID" errors in Expo Go
+
+                // Send push notification to each resident with a token
+                for (const resident of residents) {
+                    const token = resident.profile?.push_token;
+                    if (token) {
+                        console.log(`Sending push to resident ${resident.id} (Token: ${token})...`);
+                        await sendPushNotification(
+                            token,
+                            '📦 Nova Encomenda!',
+                            `Uma nova encomenda chegou para você! (${carrier})`,
+                            { packageId: 'new-package' } // simple data payload
+                        );
+                    } else {
+                        console.log(`Resident ${resident.id} has no push token.`);
+                    }
+                }
             } else {
                 console.log('No residents found for notification in this unit.');
             }
@@ -323,7 +357,11 @@ export default function RegisterPackageScreen() {
                         ]}
                         onPress={() => setVolumeType(type)}
                     >
-                        <Text style={styles.volumeEmoji}>{volumeTypeIcons[type]}</Text>
+                        <View style={styles.volumeIconContainer}>
+                            {React.cloneElement(volumeIcons[type] as React.ReactElement<{ color: string }>, {
+                                color: volumeType === type ? colors.textPrimary : colors.textSecondary
+                            })}
+                        </View>
                         <Text
                             style={[
                                 styles.volumeText,
@@ -366,7 +404,7 @@ export default function RegisterPackageScreen() {
                     <Image source={{ uri: photoUri }} style={styles.photoPreview} />
                 ) : (
                     <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoEmoji}>📸</Text>
+                        <Camera size={42} color={colors.textSecondary} style={{ marginBottom: spacing.sm }} />
                         <Text style={styles.photoText}>Tirar Foto</Text>
                     </View>
                 )}
@@ -382,7 +420,10 @@ export default function RegisterPackageScreen() {
                 {loading ? (
                     <ActivityIndicator color={colors.textPrimary} />
                 ) : (
-                    <Text style={styles.submitText}>📦 Registrar e Notificar</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Bell size={24} color={colors.textPrimary} style={{ marginRight: 8 }} />
+                        <Text style={styles.submitText}>Registrar e Notificar</Text>
+                    </View>
                 )}
             </TouchableOpacity>
         </ScrollView>
@@ -486,9 +527,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         minWidth: 90,
     },
-    volumeEmoji: {
-        fontSize: 22,
-        marginBottom: 2,
+    volumeIconContainer: {
+        marginBottom: 8,
     },
     volumeText: {
         fontSize: fontSize.xs,
@@ -508,10 +548,6 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    photoEmoji: {
-        fontSize: 42,
-        marginBottom: spacing.sm,
     },
     photoText: {
         fontSize: fontSize.md,

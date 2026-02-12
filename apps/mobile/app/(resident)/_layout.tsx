@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { Package, QrCode } from 'lucide-react-native';
+import { Package, QrCode, Settings } from 'lucide-react-native';
 import { colors, fontSize } from '../../lib/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -86,6 +86,14 @@ export default function ResidentLayout() {
                     title: 'Retirar',
                     headerTitle: 'QR Code',
                     tabBarIcon: ({ color, size }) => <QrCode size={size} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="settings"
+                options={{
+                    title: 'Configurações',
+                    headerTitle: 'Configurações',
+                    tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
                 }}
             />
         </Tabs>
