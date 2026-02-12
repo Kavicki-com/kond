@@ -12,15 +12,16 @@ import {
     ChevronRight,
 } from 'lucide-react';
 import { useState } from 'react';
+import logo from '../assets/logo.png';
 import './DashboardLayout.css';
 
 const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/packages', icon: Package, label: 'Encomendas' },
-    { to: '/residents', icon: Users, label: 'Moradores' },
-    { to: '/units', icon: Building2, label: 'Unidades' },
-    { to: '/invites', icon: Mail, label: 'Convites' },
-    { to: '/settings', icon: Settings, label: 'Configurações' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard/packages', icon: Package, label: 'Encomendas' },
+    { to: '/dashboard/residents', icon: Users, label: 'Moradores' },
+    { to: '/dashboard/units', icon: Building2, label: 'Unidades' },
+    { to: '/dashboard/invites', icon: Mail, label: 'Convites' },
+    { to: '/dashboard/settings', icon: Settings, label: 'Configurações' },
 ];
 
 export default function DashboardLayout() {
@@ -39,8 +40,8 @@ export default function DashboardLayout() {
             <aside className="sidebar">
                 <div className="sidebar-header">
                     <div className="sidebar-logo">
-                        <span className="sidebar-logo-icon">📦</span>
-                        {!collapsed && <span className="sidebar-logo-text">Kond</span>}
+                        <img src={logo} alt="Kond" style={{ height: 32, width: 'auto' }} />
+                        {!collapsed && <span className="sidebar-logo-text" style={{ marginLeft: 10 }}>Kond</span>}
                     </div>
                     <button
                         className="sidebar-toggle"

@@ -32,7 +32,7 @@
 }
 
 .login-title {
-    font-size: var(--font-3xl);
+    font-size: var(--font-2xl);
     font-weight: 800;
     letter-spacing: -0.02em;
     background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent));

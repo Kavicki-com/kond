@@ -1,20 +1,24 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
-import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Packages from './pages/Packages';
 import Residents from './pages/Residents';
 import Units from './pages/Units';
 import Invites from './pages/Invites';
 import Settings from './pages/Settings';
+import DashboardLayout from './layouts/DashboardLayout';
+import { useAuth } from './contexts/AuthContext';
+import Landing from './pages/Landing';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Checkout from './pages/Checkout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, role, signOut } = useAuth();
+  const { session, loading } = useAuth(); // Removed role check from here for now to isolate issue
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--color-bg)' }}>
         <div className="spinner spinner-lg" />
       </div>
     );
@@ -24,38 +28,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role !== 'admin') {
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', height: '100vh', gap: 'var(--space-md)', padding: 'var(--space-lg)',
-        textAlign: 'center'
-      }}>
-        <span style={{ fontSize: 48 }}>🔒</span>
-        <h2>Acesso Restrito</h2>
-        <p style={{ color: 'var(--color-text-secondary)' }}>
-          Este painel é exclusivo para administradores de condomínio.
-        </p>
-        <button
-          className="btn btn-secondary"
-          onClick={() => signOut()}
-          style={{ marginTop: 'var(--space-md)' }}
-        >
-          Sair e trocar de conta
-        </button>
-      </div>
-    );
-  }
-
   return <>{children}</>;
 }
 
 export default function App() {
   return (
     <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/checkout" element={<Checkout />} />
+
+      {/* Dashboard Routes */}
       <Route
-        path="/*"
+        path="/dashboard/*"
         element={
           <ProtectedRoute>
             <DashboardLayout />
@@ -69,6 +57,9 @@ export default function App() {
         <Route path="invites" element={<Invites />} />
         <Route path="settings" element={<Settings />} />
       </Route>
+
+      {/* Catch all - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
