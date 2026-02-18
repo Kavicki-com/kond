@@ -12,6 +12,7 @@ import Landing from './pages/Landing';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Checkout from './pages/Checkout';
+import ConfirmEmail from './pages/ConfirmEmail';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth(); // Removed role check from here for now to isolate issue
@@ -40,6 +41,7 @@ export default function App() {
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/checkout" element={<Checkout />} />
+      <Route path="/confirm-email" element={<ConfirmEmail />} />
 
       {/* Dashboard Routes */}
       <Route

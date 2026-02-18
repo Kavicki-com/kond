@@ -1,8 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Building, CheckCircle, Shield } from 'lucide-react';
+import { CheckCircle, Shield } from 'lucide-react';
+import { Payment, initMercadoPago } from '@mercadopago/sdk-react';
 import logo from '../assets/logo.png';
 import './Checkout.css';
+import { processPayment } from '../services/payment';
+import { registerCondoManager } from '../services/registration';
+
+// Initialize Mercado Pago with Public Key
+initMercadoPago('TEST-b703b043-652f-4e46-8829-9e7367ee1cb1', {
+    locale: 'pt-BR'
+});
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -10,7 +18,8 @@ export default function Checkout() {
     const plan = searchParams.get('plan') || 'pro';
 
     const [step, setStep] = useState(1);
-    const [loading, setLoading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [paymentStatus, setPaymentStatus] = useState<'approved' | 'pending'>('approved');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -21,19 +30,18 @@ export default function Checkout() {
         managerEmail: '',
         managerPhone: '',
         managerCpf: '',
-        paymentMethod: 'credit_card'
+        password: '',
     });
 
     const getPlanDetails = () => {
-        if (plan === 'starter') return { name: 'Starter', price: 'R$ 199', period: '/mês' };
-        return { name: 'Pro', price: 'R$ 399', period: '/mês' };
+        if (plan === 'starter') return { name: 'Starter', price: 199, period: '/mês' };
+        return { name: 'Pro', price: 399, period: '/mês' };
     };
 
     const planDetails = getPlanDetails();
 
     const handleNext = () => {
-        if (step < 3) setStep(step + 1);
-        else handleSubmit();
+        if (step < 2) setStep(step + 1);
     };
 
     const handleBack = () => {
@@ -41,13 +49,76 @@ export default function Checkout() {
         else navigate('/');
     };
 
-    const handleSubmit = async () => {
-        setLoading(true);
-        // Simulate API Confirm
-        setTimeout(() => {
-            setLoading(false);
+    const initialization = {
+        amount: planDetails.price,
+        payer: {
+            email: formData.managerEmail,
+            first_name: formData.managerName.split(' ')[0],
+            last_name: formData.managerName.split(' ').slice(1).join(' '),
+            identification: {
+                type: 'CPF',
+                number: formData.managerCpf.replace(/\D/g, ''),
+            },
+        },
+    };
+
+    const customization: any = {
+        paymentMethods: {
+            ticket: 'all',
+            bankTransfer: 'all',
+            creditCard: 'all',
+            debitCard: 'all',
+        },
+    };
+
+    const onSubmit = async ({ formData: paymentData }: any) => {
+        setIsProcessing(true);
+        try {
+            // STEP 1: Register user — trigger creates Profile + Condominium + Staff + Subscription
+            const authData = await registerCondoManager({
+                condoName: formData.condoName,
+                address: formData.address,
+                units: formData.units,
+                managerName: formData.managerName,
+                managerEmail: formData.managerEmail,
+                managerPhone: formData.managerPhone,
+                managerCpf: formData.managerCpf,
+                plan: planDetails.name.toLowerCase() === 'starter' ? 'basic' : 'pro',
+                password: formData.password
+            });
+
+            // STEP 2: Get condominium_id — pass userId to Edge Function which uses service_role
+            const userId = authData?.user?.id;
+
+            // STEP 3: Process payment via Edge Function (server-side, secure)
+            const result = await processPayment(paymentData, undefined, userId);
+
+            // STEP 4: Show appropriate success screen
+            setPaymentStatus(result?.status === 'approved' ? 'approved' : 'pending');
             setStep(4);
-        }, 2000);
+        } catch (error: any) {
+            console.error('Checkout error:', error);
+
+            if (error.message?.includes('rate limit') || error.status === 429) {
+                alert('Muitas tentativas de cadastro. Por favor, aguarde alguns minutos e tente novamente.');
+            } else if (error.message?.includes('User already registered')) {
+                alert('Este email já está cadastrado. Tente fazer login ou usar outro email.');
+            } else if (error.message?.includes('cc_rejected') || error.message?.includes('rejected')) {
+                alert('Pagamento recusado. Verifique os dados do cartão e tente novamente.');
+            } else {
+                alert(`Ocorreu um erro: ${error.message || 'Verifique os dados e tente novamente.'}`);
+            }
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const onError = async (error: any) => {
+        console.error('Mercado Pago Error:', error);
+    };
+
+    const onReady = async () => {
+        // Brick is ready
     };
 
     const renderStep1 = () => (
@@ -111,6 +182,16 @@ export default function Checkout() {
                     />
                 </div>
                 <div className="form-group mb-md">
+                    <label className="input-label">Senha de Acesso</label>
+                    <input
+                        className="input"
+                        type="password"
+                        placeholder="Mínimo 6 caracteres"
+                        value={formData.password}
+                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    />
+                </div>
+                <div className="form-group mb-md">
                     <label className="input-label">Telefone / WhatsApp</label>
                     <input
                         className="input"
@@ -138,65 +219,7 @@ export default function Checkout() {
         <div className="checkout-card">
             <div className="checkout-header">
                 <h2 className="checkout-title">Pagamento</h2>
-                <p className="checkout-subtitle">Escolha como deseja pagar</p>
-            </div>
-
-            <div className="payment-grid">
-                <div
-                    className={`payment-option ${formData.paymentMethod === 'credit_card' ? 'selected' : ''}`}
-                    onClick={() => setFormData({ ...formData, paymentMethod: 'credit_card' })}
-                >
-                    <CreditCard size={32} className="payment-icon" />
-                    <div className="font-bold">Cartão de Crédito</div>
-                    <div className="text-xs text-muted">Aprovação imediata</div>
-                </div>
-                <div
-                    className={`payment-option ${formData.paymentMethod === 'pix' ? 'selected' : ''}`}
-                    onClick={() => setFormData({ ...formData, paymentMethod: 'pix' })}
-                >
-                    <div className="font-bold text-2xl mb-sm" style={{ color: 'var(--color-success)' }}>PIX</div>
-                    <div className="font-bold">PIX</div>
-                    <div className="text-xs text-muted">Aprovação imediata</div>
-                </div>
-            </div>
-
-            {formData.paymentMethod === 'credit_card' ? (
-                <div className="card-form">
-                    <div className="form-group mb-md">
-                        <label className="input-label">Número do Cartão</label>
-                        <input className="input" placeholder="0000 0000 0000 0000" />
-                    </div>
-                    <div className="grid-cols-2 gap-md" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                        <div className="form-group mb-md">
-                            <label className="input-label">Validade</label>
-                            <input className="input" placeholder="MM/AA" />
-                        </div>
-                        <div className="form-group mb-md">
-                            <label className="input-label">CVV</label>
-                            <input className="input" placeholder="123" />
-                        </div>
-                    </div>
-                    <div className="form-group mb-md">
-                        <label className="input-label">Nome no Cartão</label>
-                        <input className="input" placeholder="Como impresso no cartão" />
-                    </div>
-                </div>
-            ) : (
-                <div className="text-center p-xl bg-surface-light rounded-lg mb-lg">
-                    <p className="mb-md">O código PIX será gerado na próxima etapa.</p>
-                </div>
-            )}
-
-            <button className="btn btn-primary btn-lg w-full mb-md" onClick={handleNext}>Revisar Pedido</button>
-            <button className="btn btn-ghost w-full" onClick={handleBack}>Voltar</button>
-        </div>
-    );
-
-    const renderStep3 = () => (
-        <div className="checkout-card">
-            <div className="checkout-header">
-                <h2 className="checkout-title">Revisão</h2>
-                <p className="checkout-subtitle">Confira os dados antes de finalizar</p>
+                <p className="checkout-subtitle">Seguro e processado pelo Mercado Pago</p>
             </div>
 
             <div className="bg-surface-light p-lg rounded-lg mb-lg border border-border">
@@ -204,31 +227,33 @@ export default function Checkout() {
                     <span className="text-muted">Plano</span>
                     <span className="font-bold">{planDetails.name}</span>
                 </div>
-                <div className="review-row">
-                    <span className="text-muted">Condomínio</span>
-                    <span className="font-bold">{formData.condoName || 'Não informado'}</span>
-                </div>
-                <div className="review-row">
-                    <span className="text-muted">Pagamento</span>
-                    <span className="font-bold">{formData.paymentMethod === 'credit_card' ? 'Cartão de Crédito' : 'PIX'}</span>
-                </div>
-                <div className="review-total">
-                    <span>Total</span>
-                    <span className="text-success">{planDetails.price}{planDetails.period}</span>
+                <div className="review-total mt-sm pt-sm border-t border-border">
+                    <span>Total a pagar</span>
+                    <span className="text-success text-xl">R$ {planDetails.price}</span>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="text-center py-lg">
-                    <div className="spinner spinner-lg mx-auto mb-md"></div>
-                    <p>Processando pagamento...</p>
+            {isProcessing && (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '1rem',
+                    color: 'var(--color-primary)',
+                    fontWeight: 500,
+                    marginBottom: '1rem'
+                }}>
+                    ⏳ Processando pagamento e criando sua conta...
                 </div>
-            ) : (
-                <>
-                    <button className="btn btn-primary btn-lg w-full mb-md" onClick={handleSubmit}>Confirmar e Assinar</button>
-                    <button className="btn btn-ghost w-full" onClick={handleBack}>Voltar</button>
-                </>
             )}
+
+            <Payment
+                initialization={initialization}
+                customization={customization}
+                onSubmit={onSubmit}
+                onReady={onReady}
+                onError={onError}
+            />
+
+            <button className="btn btn-ghost w-full mt-md" onClick={handleBack} disabled={isProcessing}>Voltar</button>
         </div>
     );
 
@@ -237,23 +262,37 @@ export default function Checkout() {
             <div className="mb-xl flex justify-center">
                 <div style={{
                     width: 80, height: 80, borderRadius: '50%',
-                    background: 'var(--color-success-alpha)',
+                    background: paymentStatus === 'approved' ? 'var(--color-success-alpha)' : 'rgba(234,179,8,0.15)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-success)'
+                    color: paymentStatus === 'approved' ? 'var(--color-success)' : '#ca8a04'
                 }}>
                     <CheckCircle size={48} />
                 </div>
             </div>
 
-            <h2 className="checkout-title">Sucesso!</h2>
-            <p className="checkout-subtitle mb-xl">
-                Sua assinatura do plano <strong>{planDetails.name}</strong> foi confirmada.
-                Enviamos um email para <strong>{formData.managerEmail}</strong> com os detalhes de acesso.
-            </p>
+            {paymentStatus === 'approved' ? (
+                <>
+                    <h2 className="checkout-title">Pagamento Confirmado!</h2>
+                    <p className="checkout-subtitle mb-xl">
+                        Sua assinatura do plano <strong>{planDetails.name}</strong> está ativa.<br />
+                        Enviamos um email de confirmação para <strong>{formData.managerEmail}</strong>.<br />
+                        Confirme seu email e depois faça login para acessar o painel.
+                    </p>
 
-            <button className="btn btn-primary btn-lg w-full" onClick={() => navigate('/login')}>
-                Acessar Painel
-            </button>
+                </>
+            ) : (
+                <>
+                    <h2 className="checkout-title">Cadastro Realizado!</h2>
+                    <p className="checkout-subtitle mb-xl">
+                        Seu pagamento está <strong>aguardando confirmação</strong>.
+                        Assim que o pagamento for confirmado, seu acesso ao plano <strong>{planDetails.name}</strong> será liberado automaticamente.
+                        Verifique seu email <strong>{formData.managerEmail}</strong> para instruções de pagamento.
+                    </p>
+                    <button className="btn btn-ghost btn-lg w-full" onClick={() => navigate('/login')}>
+                        Ir para o Login
+                    </button>
+                </>
+            )}
         </div>
     );
 
@@ -277,7 +316,7 @@ export default function Checkout() {
                             <div className="text-sm text-muted uppercase font-bold mb-xs">Plano Escolhido</div>
                             <div className="plan-name">{planDetails.name}</div>
                         </div>
-                        <div className="plan-price">{planDetails.price}<span className="text-sm text-muted font-normal">{planDetails.period}</span></div>
+                        <div className="plan-price">R$ {planDetails.price}<span className="text-sm text-muted font-normal">{planDetails.period}</span></div>
                     </div>
                 )}
 
@@ -291,16 +330,11 @@ export default function Checkout() {
                             <div className="step-number">{step > 2 ? <CheckCircle size={16} /> : '2'}</div>
                             <div className="step-label">Pagamento</div>
                         </div>
-                        <div className={`step-indicator ${step >= 3 ? (step > 3 ? 'step-completed' : 'step-active') : ''}`}>
-                            <div className="step-number">{step > 3 ? <CheckCircle size={16} /> : '3'}</div>
-                            <div className="step-label">Revisão</div>
-                        </div>
                     </div>
                 )}
 
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
-                {step === 3 && renderStep3()}
                 {step === 4 && renderStep4()}
             </div>
         </div>

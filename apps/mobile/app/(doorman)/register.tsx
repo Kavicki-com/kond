@@ -61,9 +61,14 @@ export default function RegisterPackageScreen() {
     const [unitSearch, setUnitSearch] = useState('');
 
     useEffect(() => {
-        loadBlocks();
         loadCarriers();
     }, []);
+
+    useEffect(() => {
+        if (condominium) {
+            loadBlocks();
+        }
+    }, [condominium]);
 
     useEffect(() => {
         if (selectedBlock) {

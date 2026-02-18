@@ -15,17 +15,33 @@ export default function Units() {
     const [blocks, setBlocks] = useState<BlockWithUnits[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Modal state
+    // Block modal state
     const [showBlockModal, setShowBlockModal] = useState(false);
+    const [blockQty, setBlockQty] = useState('1');
+    const [blockPrefix, setBlockPrefix] = useState('Bloco ');
+    const [blockFloors, setBlockFloors] = useState('');
+    const [unitsPerFloor, setUnitsPerFloor] = useState('4');
+    const [savingBlock, setSavingBlock] = useState(false);
+
+    // Unit modal state
     const [showUnitModal, setShowUnitModal] = useState(false);
     const [selectedBlockId, setSelectedBlockId] = useState('');
-    const [newBlockName, setNewBlockName] = useState('');
-    const [newUnitNumber, setNewUnitNumber] = useState('');
-    const [saving, setSaving] = useState(false);
+    const [unitNumbers, setUnitNumbers] = useState('');
+    const [savingUnit, setSavingUnit] = useState(false);
+    const [unitPreview, setUnitPreview] = useState<string[]>([]);
 
     useEffect(() => {
         if (condominium) loadBlocks();
     }, [condominium]);
+
+    // Update preview as user types unit numbers
+    useEffect(() => {
+        const parsed = unitNumbers
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        setUnitPreview(parsed);
+    }, [unitNumbers]);
 
     const loadBlocks = async () => {
         if (!condominium) return;
@@ -36,7 +52,6 @@ export default function Units() {
             .eq('condominium_id', condominium.id)
             .order('sort_order');
 
-        // Sort units within each block
         const sorted = (data || []).map((b: any) => ({
             ...b,
             units: (b.units || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
@@ -46,37 +61,97 @@ export default function Units() {
         setLoading(false);
     };
 
-    const handleAddBlock = async () => {
-        if (!newBlockName.trim() || !condominium) return;
-        setSaving(true);
-        const { error } = await supabase.from('blocks').insert({
-            condominium_id: condominium.id,
-            name: newBlockName.trim(),
-            sort_order: blocks.length,
-        });
-        setSaving(false);
-        if (!error) {
-            setNewBlockName('');
-            setShowBlockModal(false);
-            loadBlocks();
+    // Generate block names: "Bloco A", "Bloco B" or "Bloco 1", "Bloco 2"
+    const generateBlockNames = (): string[] => {
+        const qty = parseInt(blockQty) || 1;
+        const prefix = blockPrefix.trimEnd();
+        const names: string[] = [];
+
+        for (let i = 0; i < qty; i++) {
+            // If prefix ends with a space or letter, use alphabet; otherwise use numbers
+            const suffix = qty <= 26
+                ? String.fromCharCode(65 + i) // A, B, C...
+                : String(i + 1);              // 1, 2, 3...
+            names.push(`${prefix} ${suffix}`.trim());
         }
+        return names;
     };
 
-    const handleAddUnit = async () => {
-        if (!newUnitNumber.trim() || !selectedBlockId) return;
-        setSaving(true);
-        const block = blocks.find((b) => b.id === selectedBlockId);
-        const { error } = await supabase.from('units').insert({
-            block_id: selectedBlockId,
-            number: newUnitNumber.trim(),
-            sort_order: block ? block.units.length : 0,
-        });
-        setSaving(false);
-        if (!error) {
-            setNewUnitNumber('');
-            setShowUnitModal(false);
-            loadBlocks();
+    // Generate floor-based unit numbers for a block
+    const generateFloorUnits = (): string[] => {
+        const floors = parseInt(blockFloors) || 0;
+        const perFloor = parseInt(unitsPerFloor) || 4;
+        if (floors === 0) return [];
+        const units: string[] = [];
+        for (let floor = 1; floor <= floors; floor++) {
+            const floorStr = String(floor).padStart(2, '0');
+            for (let apt = 1; apt <= perFloor; apt++) {
+                units.push(`${floorStr}${String(apt).padStart(2, '0')}`);
+            }
         }
+        return units;
+    };
+
+    const handleAddBlocks = async () => {
+        if (!condominium) return;
+        setSavingBlock(true);
+
+        const names = generateBlockNames();
+        const baseOrder = blocks.length;
+
+        for (let i = 0; i < names.length; i++) {
+            const { data: blockData, error: blockError } = await supabase
+                .from('blocks')
+                .insert({
+                    condominium_id: condominium.id,
+                    name: names[i],
+                    sort_order: baseOrder + i,
+                })
+                .select('id')
+                .single();
+
+            if (blockError || !blockData) continue;
+
+            // If floors specified, auto-generate units
+            if (blockFloors && parseInt(blockFloors) > 0) {
+                const unitList = generateFloorUnits();
+                const unitInserts = unitList.map((num, idx) => ({
+                    block_id: blockData.id,
+                    number: num,
+                    sort_order: idx,
+                }));
+                await supabase.from('units').insert(unitInserts);
+            }
+        }
+
+        setSavingBlock(false);
+        setBlockQty('1');
+        setBlockPrefix('Bloco ');
+        setBlockFloors('');
+        setShowBlockModal(false);
+        loadBlocks();
+    };
+
+    const handleAddUnits = async () => {
+        if (!selectedBlockId || unitPreview.length === 0) return;
+        setSavingUnit(true);
+
+        const block = blocks.find(b => b.id === selectedBlockId);
+        const baseOrder = block ? block.units.length : 0;
+
+        const inserts = unitPreview.map((num, idx) => ({
+            block_id: selectedBlockId,
+            number: num,
+            sort_order: baseOrder + idx,
+        }));
+
+        await supabase.from('units').insert(inserts);
+
+        setSavingUnit(false);
+        setUnitNumbers('');
+        setSelectedBlockId('');
+        setShowUnitModal(false);
+        loadBlocks();
     };
 
     const handleDeleteBlock = async (blockId: string) => {
@@ -93,6 +168,9 @@ export default function Units() {
 
     const totalUnits = blocks.reduce((sum, b) => sum + b.units.length, 0);
 
+    // Block name preview
+    const blockNamePreview = generateBlockNames();
+
     return (
         <div className="page">
             <div className="page-header">
@@ -104,7 +182,7 @@ export default function Units() {
                     <button className="btn btn-secondary" onClick={() => setShowBlockModal(true)}>
                         <Building2 size={16} /> Novo Bloco
                     </button>
-                    <button className="btn btn-primary" onClick={() => setShowUnitModal(true)} disabled={blocks.length === 0}>
+                    <button className="btn btn-primary" onClick={() => { setShowUnitModal(true); setSelectedBlockId(''); setUnitNumbers(''); }} disabled={blocks.length === 0}>
                         <Plus size={16} /> Nova Unidade
                     </button>
                 </div>
@@ -179,82 +257,190 @@ export default function Units() {
                                 className="btn btn-ghost btn-sm mt-md"
                                 onClick={() => {
                                     setSelectedBlockId(block.id);
+                                    setUnitNumbers('');
                                     setShowUnitModal(true);
                                 }}
                             >
-                                <Plus size={14} /> Adicionar unidade
+                                <Plus size={14} /> Adicionar unidades
                             </button>
                         </div>
                     ))}
                 </div>
             )}
 
-            {/* Add Block Modal */}
+            {/* ── Novo Bloco Modal ── */}
             {showBlockModal && (
                 <div className="modal-overlay" onClick={() => setShowBlockModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="modal-header">
                             <h2 className="modal-title">Novo Bloco</h2>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowBlockModal(false)}>✕</button>
                         </div>
-                        <div className="form-group">
-                            <label className="input-label">Nome do bloco</label>
-                            <input
-                                className="input"
-                                placeholder="Ex: Bloco A, Torre 1"
-                                value={newBlockName}
-                                onChange={(e) => setNewBlockName(e.target.value)}
-                                autoFocus
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddBlock()}
-                            />
+
+                        <div className="flex flex-col gap-md">
+                            <div className="flex gap-md" style={{ alignItems: 'flex-end' }}>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label className="input-label">Quantidade de blocos</label>
+                                    <input
+                                        className="input"
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        placeholder="Ex: 3"
+                                        value={blockQty}
+                                        onChange={e => setBlockQty(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="input-label">Prefixo do nome</label>
+                                    <input
+                                        className="input"
+                                        placeholder="Ex: Bloco, Torre, Setor"
+                                        value={blockPrefix}
+                                        onChange={e => setBlockPrefix(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-md" style={{ alignItems: 'flex-end' }}>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label className="input-label">
+                                        Andares <span className="text-muted" style={{ fontWeight: 400 }}>(opcional)</span>
+                                    </label>
+                                    <input
+                                        className="input"
+                                        type="number"
+                                        min="0"
+                                        placeholder="Ex: 10"
+                                        value={blockFloors}
+                                        onChange={e => setBlockFloors(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label className="input-label">Unidades por andar</label>
+                                    <input
+                                        className="input"
+                                        type="number"
+                                        min="1"
+                                        max="20"
+                                        placeholder="Ex: 4"
+                                        value={unitsPerFloor}
+                                        onChange={e => setUnitsPerFloor(e.target.value)}
+                                        disabled={!blockFloors || parseInt(blockFloors) === 0}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Preview */}
+                            {blockNamePreview.length > 0 && (
+                                <div style={{
+                                    background: 'var(--color-surface-light)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: '12px 16px',
+                                    border: '1px solid var(--color-border)',
+                                }}>
+                                    <p className="text-xs text-muted mb-xs" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prévia</p>
+                                    <div className="flex flex-wrap gap-xs">
+                                        {blockNamePreview.slice(0, 10).map((name, i) => (
+                                            <span key={i} className="badge badge-info">{name}</span>
+                                        ))}
+                                        {blockNamePreview.length > 10 && (
+                                            <span className="text-xs text-muted">+{blockNamePreview.length - 10} mais</span>
+                                        )}
+                                    </div>
+                                    {blockFloors && parseInt(blockFloors) > 0 && (
+                                        <p className="text-xs text-muted mt-xs">
+                                            + {parseInt(blockFloors) * (parseInt(unitsPerFloor) || 4)} unidades por bloco (andares 01–{blockFloors.padStart(2, '0')}, {unitsPerFloor || '4'} aptos/andar)
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
                         <div className="flex justify-end gap-sm mt-lg">
                             <button className="btn btn-secondary" onClick={() => setShowBlockModal(false)}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleAddBlock} disabled={saving || !newBlockName.trim()}>
-                                {saving ? <div className="spinner" /> : 'Criar Bloco'}
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleAddBlocks}
+                                disabled={savingBlock || !blockPrefix.trim() || !blockQty || parseInt(blockQty) < 1}
+                            >
+                                {savingBlock ? <div className="spinner" /> : `Criar ${parseInt(blockQty) > 1 ? `${blockQty} Blocos` : 'Bloco'}`}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Add Unit Modal */}
+            {/* ── Nova Unidade Modal ── */}
             {showUnitModal && (
                 <div className="modal-overlay" onClick={() => setShowUnitModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="modal-header">
-                            <h2 className="modal-title">Nova Unidade</h2>
+                            <h2 className="modal-title">Adicionar Unidades</h2>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowUnitModal(false)}>✕</button>
                         </div>
+
                         <div className="flex flex-col gap-md">
                             <div className="form-group">
                                 <label className="input-label">Bloco</label>
                                 <select
                                     className="select"
                                     value={selectedBlockId}
-                                    onChange={(e) => setSelectedBlockId(e.target.value)}
+                                    onChange={e => setSelectedBlockId(e.target.value)}
                                 >
-                                    <option value="">Selecione...</option>
-                                    {blocks.map((b) => (
+                                    <option value="">Selecione o bloco...</option>
+                                    {blocks.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
                                     ))}
                                 </select>
                             </div>
+
                             <div className="form-group">
-                                <label className="input-label">Número da unidade</label>
+                                <label className="input-label">
+                                    Números das unidades
+                                    <span className="text-muted" style={{ fontWeight: 400 }}> — separe por vírgula</span>
+                                </label>
                                 <input
                                     className="input"
-                                    placeholder="Ex: 101, 202"
-                                    value={newUnitNumber}
-                                    onChange={(e) => setNewUnitNumber(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddUnit()}
+                                    placeholder="Ex: 101, 102, 103, 201, 202"
+                                    value={unitNumbers}
+                                    onChange={e => setUnitNumbers(e.target.value)}
+                                    autoFocus={!selectedBlockId}
                                 />
                             </div>
+
+                            {/* Preview chips */}
+                            {unitPreview.length > 0 && (
+                                <div style={{
+                                    background: 'var(--color-surface-light)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: '12px 16px',
+                                    border: '1px solid var(--color-border)',
+                                }}>
+                                    <p className="text-xs text-muted mb-xs" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        {unitPreview.length} unidade{unitPreview.length !== 1 ? 's' : ''} para criar
+                                    </p>
+                                    <div className="flex flex-wrap gap-xs">
+                                        {unitPreview.slice(0, 20).map((num, i) => (
+                                            <span key={i} className="badge badge-info">{num}</span>
+                                        ))}
+                                        {unitPreview.length > 20 && (
+                                            <span className="text-xs text-muted">+{unitPreview.length - 20} mais</span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
+
                         <div className="flex justify-end gap-sm mt-lg">
                             <button className="btn btn-secondary" onClick={() => setShowUnitModal(false)}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleAddUnit} disabled={saving || !newUnitNumber.trim() || !selectedBlockId}>
-                                {saving ? <div className="spinner" /> : 'Criar Unidade'}
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleAddUnits}
+                                disabled={savingUnit || !selectedBlockId || unitPreview.length === 0}
+                            >
+                                {savingUnit ? <div className="spinner" /> : `Criar ${unitPreview.length > 0 ? unitPreview.length : ''} Unidade${unitPreview.length !== 1 ? 's' : ''}`}
                             </button>
                         </div>
                     </div>
