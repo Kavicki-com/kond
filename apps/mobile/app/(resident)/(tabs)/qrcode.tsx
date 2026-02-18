@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '../../../contexts/AuthContext';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../../../lib/theme';
+import { Package, Timer, RefreshCw, KeyRound } from 'lucide-react-native';
 
 const QR_VALIDITY_SECONDS = 300; // 5 minutes
 
@@ -56,6 +57,7 @@ export default function QRCodeScreen() {
     };
 
     const progressPercent = secondsLeft / QR_VALIDITY_SECONDS;
+    const timerColor = progressPercent > 0.3 ? colors.success : colors.danger;
 
     return (
         <View style={styles.container}>
@@ -83,20 +85,17 @@ export default function QRCodeScreen() {
                                             styles.timerBar,
                                             {
                                                 width: `${progressPercent * 100}%`,
-                                                backgroundColor:
-                                                    progressPercent > 0.3 ? colors.success : colors.danger,
+                                                backgroundColor: timerColor,
                                             },
                                         ]}
                                     />
                                 </View>
-                                <Text
-                                    style={[
-                                        styles.timerText,
-                                        progressPercent <= 0.3 && { color: colors.danger },
-                                    ]}
-                                >
-                                    ⏱️ {formatTime(secondsLeft)}
-                                </Text>
+                                <View style={styles.timerRow}>
+                                    <Timer size={16} color={timerColor} style={{ marginRight: 6 }} />
+                                    <Text style={[styles.timerText, { color: timerColor }]}>
+                                        {formatTime(secondsLeft)}
+                                    </Text>
+                                </View>
                             </View>
 
                             <Text style={styles.instructionText}>
@@ -110,14 +109,17 @@ export default function QRCodeScreen() {
                             onPress={generateQR}
                             activeOpacity={0.8}
                         >
-                            <Text style={styles.regenerateText}>🔄 Gerar Novo QR</Text>
+                            <RefreshCw size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                            <Text style={styles.regenerateText}>Gerar Novo QR</Text>
                         </TouchableOpacity>
                     </>
                 ) : (
                     <>
                         {/* Initial State */}
                         <View style={styles.initialContainer}>
-                            <Text style={styles.mainEmoji}>📦</Text>
+                            <View style={styles.iconContainer}>
+                                <Package size={48} color={colors.primary} />
+                            </View>
                             <Text style={styles.mainTitle}>Retirar Encomenda</Text>
                             <Text style={styles.mainSubtitle}>
                                 Gere o QR Code e mostre na portaria para retirar suas encomendas
@@ -128,7 +130,8 @@ export default function QRCodeScreen() {
                                 onPress={generateQR}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.generateText}>🔑 Gerar QR Code</Text>
+                                <KeyRound size={22} color={colors.textPrimary} style={{ marginRight: 10 }} />
+                                <Text style={styles.generateText}>Gerar QR Code</Text>
                             </TouchableOpacity>
 
                             <Text style={styles.validityNote}>
@@ -156,8 +159,13 @@ const styles = StyleSheet.create({
     initialContainer: {
         alignItems: 'center',
     },
-    mainEmoji: {
-        fontSize: 72,
+    iconContainer: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: colors.primaryDark,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: spacing.lg,
     },
     mainTitle: {
@@ -174,6 +182,8 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xl,
     },
     generateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: colors.primary,
         borderRadius: borderRadius.lg,
         paddingVertical: spacing.lg,
@@ -223,10 +233,13 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: borderRadius.full,
     },
+    timerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     timerText: {
         fontSize: fontSize.lg,
         fontWeight: fontWeight.semibold,
-        color: colors.success,
     },
     instructionText: {
         fontSize: fontSize.md,
@@ -234,6 +247,9 @@ const styles = StyleSheet.create({
         marginTop: spacing.md,
     },
     regenerateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         alignSelf: 'center',
         backgroundColor: colors.surfaceLight,
         borderRadius: borderRadius.md,

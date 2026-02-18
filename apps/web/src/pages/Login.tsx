@@ -1,51 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.png';
 import './Login.css';
 
 export default function Login() {
-    const { signIn, loading: authLoading } = useAuth();
-    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const { signIn, session } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (session) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [session, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email.trim() || !password.trim()) {
-            setError('Preencha email e senha.');
-            return;
-        }
-
-        setLoading(true);
         setError('');
+        setLoading(true);
 
-        const { error: signInError } = await signIn(email.trim(), password);
-        setLoading(false);
-
-        if (signInError) {
-            setError(signInError.message);
-        } else {
-            navigate('/', { replace: true });
+        try {
+            const { error } = await signIn(email, password);
+            if (error) throw error;
+        } catch (err: any) {
+            setError('Email ou senha inválidos');
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
-
-    if (authLoading) {
-        return (
-            <div className="login-page">
-                <div className="spinner spinner-lg" />
-            </div>
-        );
-    }
 
     return (
         <div className="login-page">
             <div className="login-card">
                 <div className="login-header">
-                    <span className="login-logo">📦</span>
-                    <h1 className="login-title">Kond</h1>
-                    <p className="login-subtitle">Painel Administrativo</p>
+                    <div className="login-logo">
+                        <img src={logo} alt="Kond" style={{ height: 48, marginBottom: 16 }} />
+                    </div>
+                    <h1 className="login-title">Bem-vindo de volta</h1>
+                    <p className="login-subtitle">Acesse o painel do seu condomínio</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="login-form">
