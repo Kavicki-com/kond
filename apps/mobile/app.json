@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "owner": "kavickicom",
     "userInterfaceStyle": "automatic",
     "scheme": "kond",
     "newArchEnabled": false,
@@ -18,7 +19,8 @@
       "bundleIdentifier": "com.kavicki.kond",
       "infoPlist": {
         "NSCameraUsageDescription": "Precisamos da câmera para fotografar encomendas e ler QR Codes.",
-        "NSPhotoLibraryUsageDescription": "Para selecionar fotos de encomendas."
+        "NSPhotoLibraryUsageDescription": "Para selecionar fotos de encomendas.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -28,7 +30,9 @@
       },
       "package": "com.kavicki.kond",
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -52,6 +56,12 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "327e59f1-9605-4dc2-8568-377c57bcdad6"
+      }
+    }
   }
 }
