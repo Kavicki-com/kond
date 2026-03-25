@@ -1,10 +1,12 @@
 .login-page {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
+    padding: 40px 20px;
 }
 
 .login-card {
@@ -74,6 +76,49 @@
     font-size: var(--font-xs);
     color: var(--color-text-muted);
     margin-top: var(--space-lg);
+}
+
+.login-back-btn {
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    padding: 10px 16px;
+    border-radius: var(--radius-full);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.login-back-btn:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-color: var(--color-text-secondary);
+}
+
+.login-footer-signature {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    z-index: 10;
+}
+
+.login-footer-signature a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.login-footer-signature a:hover {
+    color: var(--color-primary);
 }
 
 /* Background */

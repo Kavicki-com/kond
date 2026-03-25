@@ -7,8 +7,8 @@ import './Checkout.css';
 import { processPayment } from '../services/payment';
 import { registerCondoManager } from '../services/registration';
 
-// Initialize Mercado Pago with Public Key
-initMercadoPago('TEST-b703b043-652f-4e46-8829-9e7367ee1cb1', {
+// Initialize Mercado Pago with Public Key from environment
+initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '', {
     locale: 'pt-BR'
 });
 
@@ -20,11 +20,19 @@ export default function Checkout() {
     const [step, setStep] = useState(1);
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState<'approved' | 'pending'>('approved');
+    const [pixData, setPixData] = useState<{ code: string; qrCode: string } | null>(null);
+    const [isFetchingCep, setIsFetchingCep] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
         condoName: '',
-        address: '',
+        cep: '',
+        logradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
         units: '',
         managerName: '',
         managerEmail: '',
@@ -32,6 +40,36 @@ export default function Checkout() {
         managerCpf: '',
         password: '',
     });
+
+    const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length > 5) value = value.replace(/^(\d{5})(\d)/, '$1-$2');
+        
+        setFormData(prev => ({ ...prev, cep: value }));
+        
+        const plainCep = value.replace(/\D/g, '');
+        if (plainCep.length === 8) {
+            setIsFetchingCep(true);
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${plainCep}/json/`);
+                const data = await response.json();
+                if (!data.erro) {
+                    setFormData(prev => ({
+                        ...prev,
+                        logradouro: data.logradouro || '',
+                        bairro: data.bairro || '',
+                        cidade: data.localidade || '',
+                        estado: data.uf || '',
+                    }));
+                    setTimeout(() => document.getElementById('numero')?.focus(), 100);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar CEP:', err);
+            } finally {
+                setIsFetchingCep(false);
+            }
+        }
+    };
 
     const getPlanDetails = () => {
         if (plan === 'starter') return { name: 'Starter', price: 199, period: '/mês' };
@@ -69,15 +107,41 @@ export default function Checkout() {
             creditCard: 'all',
             debitCard: 'all',
         },
+        visual: {
+            style: {
+                theme: 'dark',
+                customVariables: {
+                    formBackgroundColor: '#1a1a2e',
+                    baseColor: '#6c5ce7',
+                    baseColorFirstVariant: '#a29bfe',
+                    baseColorSecondVariant: '#5a4bd1',
+                    textColor: '#ffffff',
+                    fontSizeExtraSmall: '0.6875rem',
+                    fontSizeSmall: '0.8125rem',
+                    fontSizeMedium: '0.9375rem',
+                    fontSizeLarge: '1.0625rem',
+                    fontSizeExtraLarge: '1.25rem',
+                    buttonTextColor: '#ffffff',
+                    successColor: '#00b894',
+                    dangerColor: '#e17055',
+                    warningColor: '#fdcb6e',
+                    inputBackgroundColor: '#1a1a2e',
+                    inputFocusedBorderColor: '#6c5ce7',
+                    inputFocusedBoxShadow: '0 0 0 3px rgba(108, 92, 231, 0.12)',
+                }
+            }
+        }
     };
 
     const onSubmit = async ({ formData: paymentData }: any) => {
         setIsProcessing(true);
         try {
+            const fullAddress = `${formData.logradouro}, ${formData.numero}${formData.complemento ? ' - ' + formData.complemento : ''} - ${formData.bairro}, ${formData.cidade} - ${formData.estado}, CEP: ${formData.cep}`;
+
             // STEP 1: Register user — trigger creates Profile + Condominium + Staff + Subscription
             const authData = await registerCondoManager({
                 condoName: formData.condoName,
-                address: formData.address,
+                address: fullAddress,
                 units: formData.units,
                 managerName: formData.managerName,
                 managerEmail: formData.managerEmail,
@@ -93,6 +157,11 @@ export default function Checkout() {
             // STEP 3: Process payment via Edge Function (server-side, secure)
             const result = await processPayment(paymentData, undefined, userId);
 
+            // Save Pix data if available
+            if (result?.qrCodeString || result?.qrCodeBase64) {
+                setPixData({ code: result.qrCodeString, qrCode: result.qrCodeBase64 });
+            }
+
             // STEP 4: Show appropriate success screen
             setPaymentStatus(result?.status === 'approved' ? 'approved' : 'pending');
             setStep(4);
@@ -102,7 +171,7 @@ export default function Checkout() {
             if (error.message?.includes('rate limit') || error.status === 429) {
                 alert('Muitas tentativas de cadastro. Por favor, aguarde alguns minutos e tente novamente.');
             } else if (error.message?.includes('User already registered')) {
-                alert('Este email já está cadastrado. Tente fazer login ou usar outro email.');
+                alert('Este email já está cadastrado no sistema.\n\nSe você está testando no Sandbox do Mercado Pago, lembre-se de que cada teste de checkout com o mesmo email tentará recriar o usuário. Tente fazer login ou use um email de teste diferente (ex: comprador+2@teste.com).');
             } else if (error.message?.includes('cc_rejected') || error.message?.includes('rejected')) {
                 alert('Pagamento recusado. Verifique os dados do cartão e tente novamente.');
             } else {
@@ -137,14 +206,81 @@ export default function Checkout() {
                     onChange={e => setFormData({ ...formData, condoName: e.target.value })}
                 />
             </div>
-            <div className="form-group mb-md">
-                <label className="input-label">Endereço Completo</label>
-                <input
-                    className="input"
-                    placeholder="Rua, Número, Bairro, Cidade - UF"
-                    value={formData.address}
-                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                />
+
+            <div className="grid-cols-2 gap-md" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr' }}>
+                <div className="form-group mb-md">
+                    <label className="input-label">CEP</label>
+                    <input
+                        className="input"
+                        placeholder="00000-000"
+                        value={formData.cep}
+                        onChange={handleCepChange}
+                        maxLength={9}
+                    />
+                    {isFetchingCep && <span style={{ fontSize: '12px', color: 'var(--color-primary)', marginTop: '4px' }}>Buscando...</span>}
+                </div>
+                <div className="form-group mb-md">
+                    <label className="input-label">Rua / Logradouro</label>
+                    <input
+                        className="input"
+                        placeholder="Rua das Flores..."
+                        value={formData.logradouro}
+                        onChange={e => setFormData({ ...formData, logradouro: e.target.value })}
+                    />
+                </div>
+            </div>
+
+            <div className="grid-cols-2 gap-md" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                <div className="form-group mb-md">
+                    <label className="input-label">Número</label>
+                    <input
+                        id="numero"
+                        className="input"
+                        placeholder="123"
+                        value={formData.numero}
+                        onChange={e => setFormData({ ...formData, numero: e.target.value })}
+                    />
+                </div>
+                <div className="form-group mb-md">
+                    <label className="input-label">Complemento</label>
+                    <input
+                        className="input"
+                        placeholder="Bloco A, Apto 101"
+                        value={formData.complemento}
+                        onChange={e => setFormData({ ...formData, complemento: e.target.value })}
+                    />
+                </div>
+            </div>
+
+            <div className="grid-cols-3 gap-md" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+                <div className="form-group mb-md">
+                    <label className="input-label">Bairro</label>
+                    <input
+                        className="input"
+                        placeholder="Centro"
+                        value={formData.bairro}
+                        onChange={e => setFormData({ ...formData, bairro: e.target.value })}
+                    />
+                </div>
+                <div className="form-group mb-md">
+                    <label className="input-label">Cidade</label>
+                    <input
+                        className="input"
+                        placeholder="São Paulo"
+                        value={formData.cidade}
+                        onChange={e => setFormData({ ...formData, cidade: e.target.value })}
+                    />
+                </div>
+                <div className="form-group mb-md">
+                    <label className="input-label">UF</label>
+                    <input
+                        className="input"
+                        placeholder="SP"
+                        value={formData.estado}
+                        onChange={e => setFormData({ ...formData, estado: e.target.value })}
+                        maxLength={2}
+                    />
+                </div>
             </div>
             <div className="form-group mb-xl">
                 <label className="input-label">Quantidade de Unidades (Aprox.)</label>
@@ -282,12 +418,40 @@ export default function Checkout() {
                 </>
             ) : (
                 <>
-                    <h2 className="checkout-title">Cadastro Realizado!</h2>
-                    <p className="checkout-subtitle mb-xl">
-                        Seu pagamento está <strong>aguardando confirmação</strong>.
-                        Assim que o pagamento for confirmado, seu acesso ao plano <strong>{planDetails.name}</strong> será liberado automaticamente.
-                        Verifique seu email <strong>{formData.managerEmail}</strong> para instruções de pagamento.
+                    <h2 className="checkout-title">Aguardando Pagamento</h2>
+                    <p className="checkout-subtitle mb-lg">
+                        Seu cadastro foi realizado! Assim que o pagamento for confirmado, seu plano <strong>{planDetails.name}</strong> será liberado.
                     </p>
+
+                    {pixData && (
+                        <div className="bg-surface-light p-md rounded-lg mb-xl border border-border text-left">
+                            <h3 className="text-md font-bold mb-md text-center">Pague via Pix</h3>
+                            {pixData.qrCode && (
+                                <div className="flex justify-center mb-md">
+                                    <img src={`data:image/jpeg;base64,${pixData.qrCode}`} alt="QR Code Pix" style={{ width: 160, height: 160 }} />
+                                </div>
+                            )}
+                            <div className="mb-xs text-sm text-muted font-bold uppercase">Pix Copia e Cola:</div>
+                            <div className="flex gap-sm">
+                                <input 
+                                    className="input text-sm flex-1" 
+                                    value={pixData.code} 
+                                    readOnly 
+                                    style={{ fontFamily: 'monospace' }}
+                                />
+                                <button 
+                                    className="btn btn-primary"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(pixData.code);
+                                        alert('Código Pix copiado!');
+                                    }}
+                                >
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <button className="btn btn-ghost btn-lg w-full" onClick={() => navigate('/login')}>
                         Ir para o Login
                     </button>

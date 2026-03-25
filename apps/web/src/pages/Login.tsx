@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ArrowLeft } from 'lucide-react';
 import logo from '../assets/logo.png';
 import './Login.css';
 
@@ -37,6 +38,9 @@ export default function Login() {
 
     return (
         <div className="login-page">
+            <button className="login-back-btn" onClick={() => navigate('/')}>
+                <ArrowLeft size={16} /> Voltar para o Site
+            </button>
             <div className="login-card">
                 <div className="login-header">
                     <div className="login-logo">
@@ -89,6 +93,10 @@ export default function Login() {
                 <p className="login-footer">
                     Acesso exclusivo para administradores de condomínio
                 </p>
+            </div>
+
+            <div className="login-footer-signature">
+                Kond - 2026 - Todos os direitos reservados. Uma empresa <a href="https://kavicki.com" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>Kavicki.com</a>
             </div>
 
             {/* Background decoration */}

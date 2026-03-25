@@ -97,7 +97,23 @@ export default function DashboardLayout() {
 
             {/* Main Content */}
             <main className="main-content">
-                <Outlet />
+                {condominium?.subscription?.status === 'trialing' ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', maxWidth: 600, margin: '0 auto', marginTop: '10vh' }}>
+                        <div style={{ fontSize: 64, marginBottom: '1rem' }}>⏳</div>
+                        <h2 className="text-xl font-bold mb-md">Aguardando Pagamento</h2>
+                        <p className="text-muted mb-lg">
+                            Bem-vindo ao painel Kond! Verificamos que o pagamento da sua assinatura (Plano {condominium.plan}) ainda está em processamento ou aguardando pagamento.
+                        </p>
+                        <p className="text-muted mb-lg">
+                            Se você pagou via Pix, a confirmação ocorre em poucos minutos através do nosso sistema seguro. 
+                        </p>
+                        <button className="btn btn-primary" onClick={() => window.location.reload()}>
+                            Verificar Pagamento
+                        </button>
+                    </div>
+                ) : (
+                    <Outlet />
+                )}
             </main>
         </div>
     );

@@ -99,8 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     .eq('id', staffData.condominium_id)
                     .single();
 
+                // Load subscription for this condominium
+                const { data: subData } = await supabase
+                    .from('subscriptions')
+                    .select('*')
+                    .eq('condominium_id', staffData.condominium_id)
+                    .single();
+
                 if (condoData) {
-                    setCondominium(condoData as Condominium);
+                    setCondominium({ ...condoData, subscription: subData || undefined } as Condominium);
                 }
             } else {
                 setRole(null);

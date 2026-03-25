@@ -27,6 +27,8 @@ export interface Condominium {
     plan: Plan;
     unit_limit: number | null;
     created_at: string;
+    // Joined
+    subscription?: Subscription;
 }
 
 export interface Block {
