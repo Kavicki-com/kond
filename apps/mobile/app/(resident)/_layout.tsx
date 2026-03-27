@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from 'expo-router';
+import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Package, QrCode, Settings } from 'lucide-react-native';
 import { colors, fontSize } from '../../lib/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -61,25 +62,38 @@ export default function ResidentLayout() {
 
     return (
         <Tabs
+            tabBar={(props) => (
+                <BottomTabBar {...props} insets={{ ...props.insets, bottom: 0 }} />
+            )}
             screenOptions={{
                 headerStyle: { backgroundColor: colors.surface },
                 headerTintColor: colors.textPrimary,
                 headerTitleStyle: { fontWeight: '600' },
                 headerTitleAlign: 'left',
+                tabBarLabelPosition: 'below-icon',
+                tabBarButton: (props: any) => (
+                    <TouchableOpacity
+                        {...props}
+                        activeOpacity={0.7}
+                        style={[props.style, { height: '100%' }]}
+                    />
+                ),
                 tabBarStyle: {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
-                    ...(Platform.OS === 'android' && {
-                        height: 64 + insets.bottom,
-                        paddingBottom: insets.bottom + 10,
-                        paddingTop: 8,
-                    }),
+                    height: Platform.OS === 'ios' ? 95 : 85,
+                    borderTopWidth: 1,
+                    paddingBottom: 0,
+                },
+                tabBarItemStyle: {
+                    paddingTop: 8,
+                    paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textMuted,
                 tabBarLabelStyle: {
-                    fontSize: fontSize.xs,
-                    fontWeight: '500',
+                    fontSize: 12,
+                    fontWeight: '600',
                 },
             }}
         >
@@ -88,7 +102,11 @@ export default function ResidentLayout() {
                 options={{
                     title: 'Encomendas',
                     headerTitle: 'Minhas Encomendas',
-                    tabBarIcon: ({ color, size }) => <Package size={size} color={color} />,
+                    tabBarIcon: ({ color, size }) => (
+                        <View pointerEvents="none">
+                            <Package size={28} color={color} />
+                        </View>
+                    ),
                 }}
             />
             <Tabs.Screen
@@ -96,7 +114,11 @@ export default function ResidentLayout() {
                 options={{
                     title: 'Retirar',
                     headerTitle: 'QR Code',
-                    tabBarIcon: ({ color, size }) => <QrCode size={size} color={color} />,
+                    tabBarIcon: ({ color, size }) => (
+                        <View pointerEvents="none">
+                            <QrCode size={28} color={color} />
+                        </View>
+                    ),
                 }}
             />
             <Tabs.Screen
@@ -104,7 +126,11 @@ export default function ResidentLayout() {
                 options={{
                     title: 'Configurações',
                     headerTitle: 'Configurações',
-                    tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+                    tabBarIcon: ({ color, size }) => (
+                        <View pointerEvents="none">
+                            <Settings size={28} color={color} />
+                        </View>
+                    ),
                 }}
             />
         </Tabs>
