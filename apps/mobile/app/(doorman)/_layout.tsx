@@ -1,8 +1,11 @@
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 import { LayoutDashboard, PackagePlus, Scan, Settings } from 'lucide-react-native';
 import { colors, fontSize } from '../../lib/theme';
 
 export default function DoormanLayout() {
+    const insets = useSafeAreaInsets();
     return (
         <Tabs
             screenOptions={{
@@ -13,9 +16,11 @@ export default function DoormanLayout() {
                 tabBarStyle: {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
-                    height: 86,
-                    paddingBottom: 24,
-                    paddingTop: 8,
+                    ...(Platform.OS === 'android' && {
+                        height: 64 + insets.bottom,
+                        paddingBottom: insets.bottom + 10,
+                        paddingTop: 8,
+                    }),
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textMuted,

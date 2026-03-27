@@ -8,7 +8,7 @@
     "owner": "kavickicom",
     "userInterfaceStyle": "automatic",
     "scheme": "kond",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -60,7 +60,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "327e59f1-9605-4dc2-8568-377c57bcdad6"
+        "projectId": "1958b686-f8f1-485a-b21d-cebcd2e521c3"
       }
     }
   }

@@ -5,6 +5,9 @@
     "apps/mobile",
     "apps/web"
   ],
+  "dependencies": {
+    "react-native-svg": "15.15.3"
+  },
   "scripts": {
     "mobile": "npm start --workspace=apps/mobile",
     "mobile:android": "npm run android --workspace=apps/mobile",
@@ -14,6 +17,7 @@
   "overrides": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-native-svg": "15.15.3",
     "@types/react": "~19.1.0"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "1958b686-f8f1-485a-b21d-cebcd2e521c3"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.kavickicom.kond",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -1,18 +1,27 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from 'expo-router';
 import { Package, QrCode, Settings } from 'lucide-react-native';
 import { colors, fontSize } from '../../lib/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { scheduleLocalNotification } from '../../lib/notifications';
+import { scheduleLocalNotification, registerForPushNotificationsAsync, savePushToken } from '../../lib/notifications';
 import * as Notifications from 'expo-notifications';
 
 export default function ResidentLayout() {
     const { user, resident } = useAuth();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (!user || !resident?.unit_id) return;
+
+        // Register and save push token so the backend can send notifications
+        // even when the app is closed
+        registerForPushNotificationsAsync().then((token) => {
+            if (token) savePushToken(user.id, token);
+        });
 
         // Subscribe to NEW packages for this resident's unit
         const subscription = supabase
@@ -60,9 +69,11 @@ export default function ResidentLayout() {
                 tabBarStyle: {
                     backgroundColor: colors.surface,
                     borderTopColor: colors.border,
-                    height: 86,
-                    paddingBottom: 24,
-                    paddingTop: 8,
+                    ...(Platform.OS === 'android' && {
+                        height: 64 + insets.bottom,
+                        paddingBottom: insets.bottom + 10,
+                        paddingTop: 8,
+                    }),
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.textMuted,
