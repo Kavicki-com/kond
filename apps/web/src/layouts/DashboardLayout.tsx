@@ -95,6 +95,23 @@ export default function DashboardLayout() {
                 </div>
             </aside>
 
+            {/* Mobile Bottom Nav */}
+            <nav className="mobile-nav">
+                {navItems.map(({ to, icon: Icon, label }) => (
+                    <NavLink
+                        key={to}
+                        to={to}
+                        end={to === '/dashboard'}
+                        className={({ isActive }) =>
+                            `mobile-nav-link ${isActive ? 'active' : ''}`
+                        }
+                    >
+                        <Icon size={20} />
+                        <span>{label}</span>
+                    </NavLink>
+                ))}
+            </nav>
+
             {/* Main Content */}
             <main className="main-content">
                 {condominium?.subscription?.status === 'trialing' ? (

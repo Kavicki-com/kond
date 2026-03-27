@@ -24,26 +24,8 @@ export default function ResidentLayout() {
             if (token) savePushToken(user.id, token);
         });
 
-        // Subscribe to NEW packages for this resident's unit
-        const subscription = supabase
-            .channel('public:packages:notifications')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'packages',
-                },
-                async (payload) => {
-                    if (payload.new && payload.new.unit_id === resident.unit_id) {
-                        await scheduleLocalNotification(
-                            'Nova Encomenda! 📦',
-                            'Uma nova encomenda chegou para você.'
-                        );
-                    }
-                }
-            )
-            .subscribe();
+        // Push notifications are handled via remote push (FCM/APNs) 
+        // We don't need a local subscription for packages as it causes duplicates
 
         // Listen for notification interactions (taps)
         const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
@@ -55,7 +37,7 @@ export default function ResidentLayout() {
         });
 
         return () => {
-            supabase.removeChannel(subscription);
+            // supabase.removeChannel(subscription); // subscription was removed above
             responseListener.remove();
         };
     }, [user, resident]);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Building2 } from 'lucide-react';
+import { Plus, Trash2, Building2, Pencil } from 'lucide-react';
 
 interface BlockWithUnits {
     id: string;
@@ -29,6 +29,12 @@ export default function Units() {
     const [unitNumbers, setUnitNumbers] = useState('');
     const [savingUnit, setSavingUnit] = useState(false);
     const [unitPreview, setUnitPreview] = useState<string[]>([]);
+
+    // Edit block state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingBlockId, setEditingBlockId] = useState('');
+    const [editingBlockName, setEditingBlockName] = useState('');
+    const [updatingBlock, setUpdatingBlock] = useState(false);
 
     useEffect(() => {
         if (condominium) loadBlocks();
@@ -160,6 +166,24 @@ export default function Units() {
         loadBlocks();
     };
 
+    const handleUpdateBlock = async () => {
+        if (!editingBlockId || !editingBlockName.trim()) return;
+        setUpdatingBlock(true);
+
+        const { error } = await supabase
+            .from('blocks')
+            .update({ name: editingBlockName.trim() })
+            .eq('id', editingBlockId);
+
+        if (!error) {
+            setShowEditModal(false);
+            setEditingBlockId('');
+            setEditingBlockName('');
+            loadBlocks();
+        }
+        setUpdatingBlock(false);
+    };
+
     const handleDeleteUnit = async (unitId: string) => {
         if (!confirm('Excluir esta unidade?')) return;
         await supabase.from('units').delete().eq('id', unitId);
@@ -210,6 +234,19 @@ export default function Units() {
                                     <Building2 size={20} color="var(--color-primary-light)" />
                                     <h3 className="text-lg font-semibold">{block.name}</h3>
                                     <span className="badge badge-info">{block.units.length} unidades</span>
+                                    <button
+                                        className="btn btn-ghost btn-xs text-muted"
+                                        onClick={() => {
+                                            setEditingBlockId(block.id);
+                                            setEditingBlockName(block.name);
+                                            setShowEditModal(true);
+                                        }}
+                                        title="Editar nome"
+                                        style={{ padding: 4, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                        <Pencil size={12} />
+                                        <span className="text-xs">Editar</span>
+                                    </button>
                                 </div>
                                 <button
                                     className="btn btn-ghost btn-sm"
@@ -441,6 +478,39 @@ export default function Units() {
                                 disabled={savingUnit || !selectedBlockId || unitPreview.length === 0}
                             >
                                 {savingUnit ? <div className="spinner" /> : `Criar ${unitPreview.length > 0 ? unitPreview.length : ''} Unidade${unitPreview.length !== 1 ? 's' : ''}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Editar Bloco Modal ── */}
+            {showEditModal && (
+                <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Editar Bloco</h2>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowEditModal(false)}>✕</button>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="input-label">Nome do bloco</label>
+                            <input
+                                className="input"
+                                value={editingBlockName}
+                                onChange={e => setEditingBlockName(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-sm mt-lg">
+                            <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancelar</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleUpdateBlock}
+                                disabled={updatingBlock || !editingBlockName.trim()}
+                            >
+                                {updatingBlock ? <div className="spinner" /> : 'Salvar'}
                             </button>
                         </div>
                     </div>

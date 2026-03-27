@@ -29,6 +29,7 @@
         "backgroundColor": "#1a1a2e"
       },
       "package": "com.kavicki.kond",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
         "android.permission.CAMERA",
