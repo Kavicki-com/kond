@@ -189,38 +189,8 @@ export default function RegisterPackageScreen() {
 
             if (error) throw error;
 
-            // Notify residents
-            console.log(`Checking for residents in unit ${selectedUnit.id}...`);
-            const { data: residents, error: resError } = await supabase
-                .from('residents')
-                .select('*, profile:profiles(*)')
-                .eq('unit_id', selectedUnit.id)
-                .eq('receives_notifications', true);
-
-            if (resError) {
-                console.error('Error fetching residents:', resError);
-            } else if (residents && residents.length > 0) {
-                console.log(`Found ${residents.length} residents linked to unit.`);
-
-                // Send push notification to each resident with a token
-                for (const resident of residents) {
-                    const token = resident.profile?.push_token;
-                    if (token) {
-                        console.log(`Sending push to resident ${resident.id} (Token: ${token})...`);
-                        await sendPushNotification(
-                            token,
-                            '📦 Nova Encomenda!',
-                            `Uma nova encomenda chegou para você! (${carrier})`,
-                            { packageId: 'new-package' } // simple data payload
-                        );
-                    } else {
-                        console.log(`Resident ${resident.id} has no push token.`);
-                    }
-                }
-            } else {
-                console.log('No residents found for notification in this unit.');
-            }
-
+            if (error) throw error;
+            
             Alert.alert('✅ Encomenda Registrada!', 'Moradores serão notificados.', [
                 {
                     text: 'OK', onPress: () => {

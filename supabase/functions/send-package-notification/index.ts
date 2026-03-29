@@ -47,9 +47,9 @@ Deno.serve(async (req: Request) => {
       return new Response("Error fetching profiles", { status: 500 });
     }
 
-    const tokens = profiles
+    const tokens = [...new Set(profiles
       ?.map((p: any) => p.push_token)
-      .filter(Boolean) as string[];
+      .filter(Boolean))] as string[];
 
     if (!tokens || tokens.length === 0) {
       console.log("No push tokens found for unit residents.");
@@ -57,15 +57,22 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build notification messages
+    const carrierSuffix = newPackage.carrier ? ` (${newPackage.carrier})` : "";
+    
     const messages = tokens.map((token) => ({
       to: token,
       sound: "default",
       title: "Nova Encomenda! 📦",
-      body: "Uma nova encomenda chegou para você.",
+      body: `Uma nova encomenda chegou para você!${carrierSuffix}`,
       data: {
         packageId: newPackage.id,
         unitId: newPackage.unit_id,
       },
+      channelId: "default",
+      priority: "high",
+      // Adding these to ensure correct routing in development/EAS builds
+      experienceId: "@kavickicom/kond",
+      projectId: "1958b686-f8f1-485a-b21d-cebcd2e521c3",
     }));
 
     // Send via Expo Push API
