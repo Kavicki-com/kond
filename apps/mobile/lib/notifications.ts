@@ -103,7 +103,7 @@ export async function sendPushNotification(expoPushToken: string, title: string,
     };
 
     try {
-        await fetch('https://exp.host/--/api/v2/push/send', {
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -112,6 +112,9 @@ export async function sendPushNotification(expoPushToken: string, title: string,
             },
             body: JSON.stringify(message),
         });
+        
+        const responseData = await response.json();
+        console.log('Push api response:', responseData);
     } catch (e) {
         console.error('Error sending notification:', e);
     }

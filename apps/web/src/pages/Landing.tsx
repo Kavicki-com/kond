@@ -89,7 +89,7 @@ export default function Landing() {
                             Começar Agora
                         </button>
                         <button className="btn btn-secondary btn-lg hover-scale" onClick={() => document.getElementById('web-app')?.scrollIntoView({ behavior: 'smooth' })}>
-                            Conhecer as Telas
+                            Conheça as Funcionalidades
                         </button>
                     </div>
                 </div>

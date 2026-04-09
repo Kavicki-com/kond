@@ -1,23 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Shield } from 'lucide-react';
+import { CheckCircle, Shield, AlertCircle } from 'lucide-react';
 import { Payment, initMercadoPago } from '@mercadopago/sdk-react';
 import logo from '../assets/logo.png';
 import './Checkout.css';
 import { processPayment } from '../services/payment';
 import { registerCondoManager } from '../services/registration';
+import { useAuth } from '../contexts/AuthContext';
 
 // Initialize Mercado Pago with Public Key from environment
-initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '', {
-    locale: 'pt-BR'
-});
+const mpKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '';
+if (mpKey) {
+    initMercadoPago(mpKey, { locale: 'pt-BR' });
+}
 
 export default function Checkout() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const plan = searchParams.get('plan') || 'pro';
+    const isUpgrade = searchParams.get('upgrade') === 'true';
+    const { user, profile, condominium } = useAuth();
 
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(isUpgrade ? 2 : 1);
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState<'approved' | 'pending'>('approved');
     const [pixData, setPixData] = useState<{ code: string; qrCode: string } | null>(null);
@@ -87,15 +91,21 @@ export default function Checkout() {
         else navigate('/');
     };
 
+    // For upgrade mode, use the authenticated user's data
+    const payerEmail = isUpgrade ? (user?.email || '') : formData.managerEmail;
+    const payerName = isUpgrade ? (profile?.full_name || '') : formData.managerName;
+    const payerCpf = isUpgrade ? ((profile as any)?.cpf || '') : formData.managerCpf;
+
     const initialization = {
         amount: planDetails.price,
         payer: {
-            email: formData.managerEmail,
-            first_name: formData.managerName.split(' ')[0],
-            last_name: formData.managerName.split(' ').slice(1).join(' '),
+            email: payerEmail,
+            first_name: payerName.split(' ')[0],
+            last_name: payerName.split(' ').slice(1).join(' '),
+            entity_type: 'individual',
             identification: {
                 type: 'CPF',
-                number: formData.managerCpf.replace(/\D/g, ''),
+                number: payerCpf.replace(/\D/g, ''),
             },
         },
     };
@@ -115,7 +125,6 @@ export default function Checkout() {
                     baseColor: '#6c5ce7',
                     baseColorFirstVariant: '#a29bfe',
                     baseColorSecondVariant: '#5a4bd1',
-                    textColor: '#ffffff',
                     fontSizeExtraSmall: '0.6875rem',
                     fontSizeSmall: '0.8125rem',
                     fontSizeMedium: '0.9375rem',
@@ -123,11 +132,8 @@ export default function Checkout() {
                     fontSizeExtraLarge: '1.25rem',
                     buttonTextColor: '#ffffff',
                     successColor: '#00b894',
-                    dangerColor: '#e17055',
                     warningColor: '#fdcb6e',
                     inputBackgroundColor: '#1a1a2e',
-                    inputFocusedBorderColor: '#6c5ce7',
-                    inputFocusedBoxShadow: '0 0 0 3px rgba(108, 92, 231, 0.12)',
                 }
             }
         }
@@ -136,33 +142,40 @@ export default function Checkout() {
     const onSubmit = async ({ formData: paymentData }: any) => {
         setIsProcessing(true);
         try {
-            const fullAddress = `${formData.logradouro}, ${formData.numero}${formData.complemento ? ' - ' + formData.complemento : ''} - ${formData.bairro}, ${formData.cidade} - ${formData.estado}, CEP: ${formData.cep}`;
+            let userId: string | undefined;
 
-            // STEP 1: Register user — trigger creates Profile + Condominium + Staff + Subscription
-            const authData = await registerCondoManager({
-                condoName: formData.condoName,
-                address: fullAddress,
-                units: formData.units,
-                managerName: formData.managerName,
-                managerEmail: formData.managerEmail,
-                managerPhone: formData.managerPhone,
-                managerCpf: formData.managerCpf,
-                plan: planDetails.name.toLowerCase() === 'starter' ? 'basic' : 'pro',
-                password: formData.password
-            });
+            if (isUpgrade) {
+                // UPGRADE FLOW: User already exists, just process payment
+                userId = user?.id;
+            } else {
+                // NEW REGISTRATION FLOW
+                const fullAddress = `${formData.logradouro}, ${formData.numero}${formData.complemento ? ' - ' + formData.complemento : ''} - ${formData.bairro}, ${formData.cidade} - ${formData.estado}, CEP: ${formData.cep}`;
 
-            // STEP 2: Get condominium_id — pass userId to Edge Function which uses service_role
-            const userId = authData?.user?.id;
+                // STEP 1: Register user — trigger creates Profile + Condominium + Staff + Subscription
+                const authData = await registerCondoManager({
+                    condoName: formData.condoName,
+                    address: fullAddress,
+                    units: formData.units,
+                    managerName: formData.managerName,
+                    managerEmail: formData.managerEmail,
+                    managerPhone: formData.managerPhone,
+                    managerCpf: formData.managerCpf,
+                    plan: planDetails.name.toLowerCase() === 'starter' ? 'basic' : 'pro',
+                    password: formData.password
+                });
 
-            // STEP 3: Process payment via Edge Function (server-side, secure)
-            const result = await processPayment(paymentData, undefined, userId);
+                userId = authData?.user?.id;
+            }
+
+            // Process payment via Edge Function (server-side, secure)
+            const result = await processPayment(paymentData, condominium?.id, userId);
 
             // Save Pix data if available
             if (result?.qrCodeString || result?.qrCodeBase64) {
                 setPixData({ code: result.qrCodeString, qrCode: result.qrCodeBase64 });
             }
 
-            // STEP 4: Show appropriate success screen
+            // Show appropriate success screen
             setPaymentStatus(result?.status === 'approved' ? 'approved' : 'pending');
             setStep(4);
         } catch (error: any) {
@@ -354,7 +367,7 @@ export default function Checkout() {
     const renderStep2 = () => (
         <div className="checkout-card">
             <div className="checkout-header">
-                <h2 className="checkout-title">Pagamento</h2>
+                <h2 className="checkout-title">{isUpgrade ? 'Confirmar Upgrade' : 'Pagamento'}</h2>
                 <p className="checkout-subtitle">Seguro e processado pelo Mercado Pago</p>
             </div>
 
@@ -377,19 +390,39 @@ export default function Checkout() {
                     fontWeight: 500,
                     marginBottom: '1rem'
                 }}>
-                    ⏳ Processando pagamento e criando sua conta...
+                    ⏳ {isUpgrade ? 'Processando pagamento...' : 'Processando pagamento e criando sua conta...'}
                 </div>
             )}
 
-            <Payment
-                initialization={initialization}
-                customization={customization}
-                onSubmit={onSubmit}
-                onReady={onReady}
-                onError={onError}
-            />
+            {!mpKey ? (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '2rem',
+                    color: 'var(--color-danger)',
+                    background: 'var(--color-danger-alpha)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                }}>
+                    <AlertCircle size={20} />
+                    Chave do Mercado Pago não configurada. Verifique o arquivo .env
+                </div>
+            ) : (
+                <Payment
+                    initialization={initialization}
+                    customization={customization}
+                    onSubmit={onSubmit}
+                    onReady={onReady}
+                    onError={onError}
+                />
+            )}
 
-            <button className="btn btn-ghost w-full mt-md" onClick={handleBack} disabled={isProcessing}>Voltar</button>
+            <button className="btn btn-ghost w-full mt-md" onClick={isUpgrade ? () => navigate('/dashboard/settings') : handleBack} disabled={isProcessing}>
+                {isUpgrade ? 'Cancelar' : 'Voltar'}
+            </button>
         </div>
     );
 
@@ -409,12 +442,22 @@ export default function Checkout() {
             {paymentStatus === 'approved' ? (
                 <>
                     <h2 className="checkout-title">Pagamento Confirmado!</h2>
-                    <p className="checkout-subtitle mb-xl">
-                        Sua assinatura do plano <strong>{planDetails.name}</strong> está ativa.<br />
-                        Enviamos um email de confirmação para <strong>{formData.managerEmail}</strong>.<br />
-                        Confirme seu email e depois faça login para acessar o painel.
-                    </p>
-
+                    {isUpgrade ? (
+                        <>
+                            <p className="checkout-subtitle mb-xl">
+                                Seu plano foi atualizado para <strong>{planDetails.name}</strong> com sucesso!
+                            </p>
+                            <button className="btn btn-primary btn-lg w-full" onClick={() => navigate('/dashboard/settings')}>
+                                Voltar ao Painel
+                            </button>
+                        </>
+                    ) : (
+                        <p className="checkout-subtitle mb-xl">
+                            Sua assinatura do plano <strong>{planDetails.name}</strong> está ativa.<br />
+                            Enviamos um email de confirmação para <strong>{formData.managerEmail}</strong>.<br />
+                            Confirme seu email e depois faça login para acessar o painel.
+                        </p>
+                    )}
                 </>
             ) : (
                 <>

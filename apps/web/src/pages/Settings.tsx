@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Save, Building2, User, Lock, CreditCard, AlertTriangle, MapPin } from 'lucide-react';
 
 export default function Settings() {
     const { user, condominium, profile, refreshUserData } = useAuth();
+    const navigate = useNavigate();
     
     // Condominium Details
     const [condoName, setCondoName] = useState(condominium?.name || '');
@@ -172,23 +174,9 @@ export default function Settings() {
         setTimeout(() => setMessage(''), 5000);
     };
 
-    const handleChangePlan = async (newPlan: 'pro' | 'basic') => {
-        if (!condominium) return;
-        if (!window.confirm(`Confirma a alteração para o plano ${newPlan.toUpperCase()}?`)) return;
-        setSaving(true);
-        const { error } = await supabase
-            .from('condominiums')
-            .update({ plan: newPlan })
-            .eq('id', condominium.id);
-
-        if (!error) {
-            setMessage(`Plano alterado para ${newPlan.toUpperCase()}!`);
-            await refreshUserData();
-        } else {
-            setMessage('Erro ao alterar plano: ' + error.message);
-        }
-        setSaving(false);
-        setTimeout(() => setMessage(''), 3000);
+    const handleChangePlan = (newPlan: 'pro' | 'basic') => {
+        const planParam = newPlan === 'pro' ? 'pro' : 'starter';
+        navigate(`/checkout?plan=${planParam}&upgrade=true`);
     };
 
     const handleCancelPlan = async () => {
@@ -471,12 +459,12 @@ export default function Settings() {
                         {(condominium as any)?.status !== 'cancelled' && (
                             <div className="flex items-center gap-md border-t border-border pt-md">
                                 {(condominium as any)?.plan !== 'pro' && (
-                                    <button className="btn btn-primary" onClick={() => handleChangePlan('pro')} disabled={saving || (condominium as any)?.plan === 'pro'}>
+                                    <button className="btn btn-primary" onClick={() => handleChangePlan('pro')}>
                                         Fazer Upgrade para o Pro
                                     </button>
                                 )}
                                 {(condominium as any)?.plan !== 'basic' && (
-                                    <button className="btn btn-ghost" onClick={() => handleChangePlan('basic')} disabled={saving || (condominium as any)?.plan === 'basic'}>
+                                    <button className="btn btn-ghost" onClick={() => handleChangePlan('basic')}>
                                         Mudar para Starter (Basic)
                                     </button>
                                 )}
