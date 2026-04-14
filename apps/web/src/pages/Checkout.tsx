@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Shield, AlertCircle } from 'lucide-react';
 import { Payment, initMercadoPago } from '@mercadopago/sdk-react';

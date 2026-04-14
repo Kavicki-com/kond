@@ -118,11 +118,11 @@ export default function RegisterPackageScreen() {
         });
 
         if (!result.canceled && result.assets[0]) {
-            // Resize image to avoid upload limits (max width 1080px, 70% quality)
+            // Resize image to avoid upload limits (max width 800px, 50% quality)
             const manipResult = await ImageManipulator.manipulateAsync(
                 result.assets[0].uri,
-                [{ resize: { width: 1080 } }],
-                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                [{ resize: { width: 800 } }],
+                { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
             );
             setPhotoUri(manipResult.uri);
         }
